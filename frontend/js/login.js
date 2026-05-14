@@ -1,5 +1,5 @@
 // ===== LOGIN JS =====
-const CREDENTIALS = { email: 'iffattjel@test.com', password: 'tjel123' };
+const CREDENTIALS = { email: 'admin@test.com', password: 'admin123' };
 
 const loginForm = document.getElementById('loginForm');
 const emailInput = document.getElementById('email');
