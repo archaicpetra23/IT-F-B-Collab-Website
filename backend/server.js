@@ -114,10 +114,8 @@ app.get('/api/dashboard', (req, res) => {
 });
 
 // Only listen if running directly (local dev)
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`✅ FinForecast Server running at http://localhost:${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`✅ FinForecast Server running at http://localhost:${PORT}`);
+});
 
 module.exports = app;
