@@ -28,30 +28,28 @@ const auth = authGuard();
 document.getElementById('app').insertAdjacentHTML('afterbegin', renderSidebar('dashboard'));
 document.querySelector('.main-content').insertAdjacentHTML('afterbegin', renderTopbar('Dashboard', 'Ringkasan laporan keuangan & forecast'));
 
-async function initDashboard() {
-  try {
-    const response = await fetch('/api/dashboard');
-    const result = await response.json();
-    const d = result.raw;
-    const s = result.summary;
+function initDashboard() {
+  // Selalu baca dari centralized state agar mencerminkan data terbaru dari semua modul
+  const d = getState();
 
-    const grossProfit = d.revenue - d.cogs;
-    const netProfit = s.netProfit;
-    const profitMargin = s.profitMargin;
-    const netCash = s.netCashFlow;
-    const totalAssets = s.totalAssets;
-    const totalLiabilities = s.totalLiabilities;
-    const bepUnit = s.bepUnit;
-    const bepRevenue = s.bepRevenue;
-    const paybackYears = s.paybackPeriod;
+  const grossProfit = d.revenue - d.cogs;
+  const netProfit = grossProfit - d.expenses - d.tax;
+  const profitMargin = d.revenue > 0 ? ((netProfit / d.revenue) * 100).toFixed(1) : 0;
+  const netCash = (d.cashSales + d.cashInvestment) - (d.cashSalary + d.cashOperational);
+  const totalAssets = d.cash + d.inventory + d.equipment;
+  const totalLiabilities = d.debt + d.payables;
+  const cm = d.sellingPrice - d.variableCostPerUnit;
+  const bepUnit = cm > 0 ? Math.ceil(d.fixedCost / cm) : 0;
+  const bepRevenue = bepUnit * d.sellingPrice;
+  const paybackYears = d.annualCashInflow > 0 ? (d.initialInvestment / d.annualCashInflow).toFixed(1) : '∞';
 
-    // Forecast (10% growth)
-    const gr = d.growthRate / 100;
-    const forecastRevenue = Math.round(d.revenue * (1 + gr));
-    const forecastProfit = Math.round(netProfit * (1 + gr));
+  // Forecast
+  const gr = d.growthRate / 100;
+  const forecastRevenue = Math.round(d.revenue * (1 + gr));
+  const forecastProfit = Math.round(netProfit * (1 + gr));
 
-    const pageContent = document.getElementById('pageContent');
-    pageContent.innerHTML = `
+  const pageContent = document.getElementById('pageContent');
+  pageContent.innerHTML = `
     <div class="animate-fade-up" style="margin-bottom:24px">
       <div class="grid-4">
         <div class="stat-card green animate-fade-up delay-1">
@@ -87,9 +85,9 @@ async function initDashboard() {
           <div class="stat-info">
             <div class="stat-label">Net Cash Flow</div>
             <div class="stat-value" id="cnt-cash">Rp 0</div>
-            <div class="stat-change up">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="18 15 12 9 6 15"/></svg>
-              Surplus
+            <div class="stat-change ${netCash >= 0 ? 'up' : 'down'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="${netCash >= 0 ? '18 15 12 9 6 15' : '6 9 12 15 18 9'}"/></svg>
+              ${netCash >= 0 ? 'Surplus' : 'Defisit'}
             </div>
           </div>
         </div>
@@ -133,17 +131,17 @@ async function initDashboard() {
             <span style="font-size:13px;color:var(--gray-600)">COGS</span>
             <span style="font-size:13px;font-weight:600;color:var(--gray-900)">${formatRp(d.cogs)}</span>
           </div>
-          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill green" style="width:${(d.cogs/d.revenue*100).toFixed(0)}%"></div></div>
+          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill green" style="width:${d.revenue>0?(d.cogs/d.revenue*100).toFixed(0):0}%"></div></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <span style="font-size:13px;color:var(--gray-600)">Operating Expense</span>
             <span style="font-size:13px;font-weight:600;color:var(--gray-900)">${formatRp(d.expenses)}</span>
           </div>
-          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill orange" style="width:${(d.expenses/d.revenue*100).toFixed(0)}%"></div></div>
+          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill orange" style="width:${d.revenue>0?(d.expenses/d.revenue*100).toFixed(0):0}%"></div></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <span style="font-size:13px;color:var(--gray-600)">Tax</span>
             <span style="font-size:13px;font-weight:600;color:var(--gray-900)">${formatRp(d.tax)}</span>
           </div>
-          <div class="progress-bar"><div class="progress-fill green" style="width:${(d.tax/d.revenue*100).toFixed(0)}%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div>
+          <div class="progress-bar"><div class="progress-fill green" style="width:${d.revenue>0?(d.tax/d.revenue*100).toFixed(0):0}%;background:linear-gradient(90deg,#7c3aed,#a78bfa)"></div></div>
         </div>
       </div>
     </div>
@@ -173,7 +171,7 @@ async function initDashboard() {
                 <div style="font-size:12px;color:var(--gray-500);margin-bottom:2px">Gross Profit</div>
                 <div style="font-size:20px;font-weight:700;font-family:'Outfit',sans-serif;color:var(--primary-dark)">${formatRp(grossProfit)}</div>
               </div>
-              <div style="background:var(--primary);color:white;border-radius:var(--radius-sm);padding:6px 12px;font-size:13px;font-weight:700">${((grossProfit/d.revenue)*100).toFixed(1)}%</div>
+              <div style="background:var(--primary);color:white;border-radius:var(--radius-sm);padding:6px 12px;font-size:13px;font-weight:700">${d.revenue>0?((grossProfit/d.revenue)*100).toFixed(1):0}%</div>
             </div>
           </div>
           <div style="background:var(--secondary-bg);border-radius:var(--radius);padding:16px;border:1px solid var(--orange-200)">
@@ -222,71 +220,68 @@ async function initDashboard() {
     </div>
     `;
 
-    // Count-up animations
-    setTimeout(() => {
-      animateCount(document.getElementById('cnt-rev'), d.revenue, 'Rp ');
-      animateCount(document.getElementById('cnt-profit'), netProfit, 'Rp ');
-      animateCount(document.getElementById('cnt-cash'), netCash, 'Rp ');
-      animateCount(document.getElementById('cnt-bep'), bepRevenue, 'Rp ');
-    }, 300);
+  // Count-up animations
+  setTimeout(() => {
+    animateCount(document.getElementById('cnt-rev'), d.revenue, 'Rp ');
+    animateCount(document.getElementById('cnt-profit'), netProfit, 'Rp ');
+    animateCount(document.getElementById('cnt-cash'), netCash, 'Rp ');
+    animateCount(document.getElementById('cnt-bep'), bepRevenue, 'Rp ');
+  }, 300);
 
-    // Charts
-    const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
-    const baseRev = Array.from({length:12}, (_,i) => Math.round(d.revenue * (1 + i*0.02)));
-    const baseProfit = baseRev.map(r => Math.round(r * (netProfit/d.revenue)));
+  // Charts
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const baseRev = Array.from({length:12}, (_,i) => Math.round(d.revenue * (1 + i*0.02)));
+  const baseProfit = baseRev.map(r => Math.round(r * (d.revenue > 0 ? netProfit/d.revenue : 0)));
 
-    new Chart(document.getElementById('revenueChart'), {
-      type: 'bar',
-      data: {
-        labels: months,
-        datasets: [
-          { label: 'Revenue', data: baseRev, backgroundColor: 'rgba(22,163,74,0.15)', borderColor: '#16a34a', borderWidth: 2, borderRadius: 6, borderSkipped: false },
-          { label: 'Net Profit', data: baseProfit, backgroundColor: 'rgba(249,115,22,0.15)', borderColor: '#f97316', borderWidth: 2, borderRadius: 6, borderSkipped: false, type: 'line', tension: 0.4, fill: true, pointBackgroundColor: '#f97316', pointRadius: 4 }
-        ]
-      },
-      options: {
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 16 } }, tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } } },
-        scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 11 } } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } }
-      }
-    });
+  new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Revenue', data: baseRev, backgroundColor: 'rgba(22,163,74,0.15)', borderColor: '#16a34a', borderWidth: 2, borderRadius: 6, borderSkipped: false },
+        { label: 'Net Profit', data: baseProfit, backgroundColor: 'rgba(249,115,22,0.15)', borderColor: '#f97316', borderWidth: 2, borderRadius: 6, borderSkipped: false, type: 'line', tension: 0.4, fill: true, pointBackgroundColor: '#f97316', pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 16 } }, tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } } },
+      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 11 } } }, x: { grid: { display: false }, ticks: { font: { size: 11 } } } }
+    }
+  });
 
-    new Chart(document.getElementById('expenseChart'), {
-      type: 'doughnut',
-      data: {
-        labels: ['COGS','Expenses','Tax','Net Profit'],
-        datasets: [{ data: [d.cogs, d.expenses, d.tax, netProfit], backgroundColor: ['#16a34a','#f97316','#7c3aed','#2563eb'], borderWidth: 0, hoverOffset: 6 }]
-      },
-      options: {
-        responsive: true,
-        cutout: '68%',
-        plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 }, padding: 12 } }, tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } } }
-      }
-    });
+  new Chart(document.getElementById('expenseChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['COGS','Expenses','Tax','Net Profit'],
+      datasets: [{ data: [d.cogs, d.expenses, d.tax, netProfit], backgroundColor: ['#16a34a','#f97316','#7c3aed','#2563eb'], borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '68%',
+      plugins: { legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 }, padding: 12 } }, tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } } }
+    }
+  });
 
-    new Chart(document.getElementById('forecastChart'), {
-      type: 'line',
-      data: {
-        labels: ['2024','2025 (Actual)','2026 (Forecast)','2027 (Est)','2028 (Est)'],
-        datasets: [
-          { label: 'Revenue', data: [75000, d.revenue, forecastRevenue, Math.round(forecastRevenue*(1+gr)), Math.round(forecastRevenue*(1+gr)**2)], borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#16a34a', pointRadius: 5, borderWidth: 2.5 },
-          { label: 'Net Profit', data: [20000, netProfit, forecastProfit, Math.round(forecastProfit*(1+gr)), Math.round(forecastProfit*(1+gr)**2)], borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#f97316', pointRadius: 5, borderWidth: 2.5 }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 12 } }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
-        scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
-      }
-    });
-  } catch (err) {
-    console.error('Failed to load dashboard data:', err);
-    document.getElementById('pageContent').innerHTML = `<div class="card"><p style="color:red">Gagal memuat data dari server. Pastikan backend aktif.</p></div>`;
-  }
+  new Chart(document.getElementById('forecastChart'), {
+    type: 'line',
+    data: {
+      labels: ['2024','2025 (Actual)','2026 (Forecast)','2027 (Est)','2028 (Est)'],
+      datasets: [
+        { label: 'Revenue', data: [Math.round(d.revenue*0.75), d.revenue, forecastRevenue, Math.round(forecastRevenue*(1+gr)), Math.round(forecastRevenue*(1+gr)**2)], borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#16a34a', pointRadius: 5, borderWidth: 2.5 },
+        { label: 'Net Profit', data: [Math.round(netProfit*0.6), netProfit, forecastProfit, Math.round(forecastProfit*(1+gr)), Math.round(forecastProfit*(1+gr)**2)], borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#f97316', pointRadius: 5, borderWidth: 2.5 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 }, boxWidth: 12, padding: 12 } }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
+      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+    }
+  });
 }
 
 initDashboard();
+
 </script>
 </body>
 </html>

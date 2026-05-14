@@ -40,11 +40,11 @@ document.getElementById('pageContent').innerHTML = `
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Sales Revenue</label>
-          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-sales" value="100000" min="0" oninput="calculateCash()"></div>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-sales" value="100000" min="0" oninput="saveCashInputs();calculateCash()"></div>
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Investment Cash</label>
-          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-invest" value="20000" min="0" oninput="calculateCash()"></div>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-invest" value="20000" min="0" oninput="saveCashInputs();calculateCash()"></div>
         </div>
       </div>
     </div>
@@ -57,11 +57,11 @@ document.getElementById('pageContent').innerHTML = `
       <div class="form-row">
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Salary / Gaji</label>
-          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-salary" value="30000" min="0" oninput="calculateCash()"></div>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-salary" value="30000" min="0" oninput="saveCashInputs();calculateCash()"></div>
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label">Operational Cost</label>
-          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-ops" value="15000" min="0" oninput="calculateCash()"></div>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-ops" value="15000" min="0" oninput="saveCashInputs();calculateCash()"></div>
         </div>
       </div>
     </div>
@@ -175,25 +175,34 @@ function calculateCash() {
   });
 }
 
-async function initCash() {
-  try {
-    const response = await fetch('/api/cash-flow');
-    const d = await response.json();
-    
-    document.getElementById('cf-sales').value = d.cashIn.sales;
-    document.getElementById('cf-invest').value = d.cashIn.investment;
-    document.getElementById('cf-salary').value = d.cashOut.salary;
-    document.getElementById('cf-ops').value = d.cashOut.operational;
-    
-    calculateCash();
-  } catch (err) {
-    console.error('Failed to load cash flow data:', err);
-    calculateCash(); // Fallback to defaults
-  }
+function saveCashInputs() {
+  setState({
+    cashSales:        +document.getElementById('cf-sales').value  || 0,
+    cashInvestment:   +document.getElementById('cf-invest').value || 0,
+    cashSalary:       +document.getElementById('cf-salary').value || 0,
+    cashOperational:  +document.getElementById('cf-ops').value    || 0
+  });
+}
+
+function loadCashInputs(s) {
+  document.getElementById('cf-sales').value  = s.cashSales;
+  document.getElementById('cf-invest').value = s.cashInvestment;
+  document.getElementById('cf-salary').value = s.cashSalary;
+  document.getElementById('cf-ops').value    = s.cashOperational;
+}
+
+function initCash() {
+  loadCashInputs(getState());
+  calculateCash();
 }
 
 function resetCash() {
-  initCash();
+  setState({
+    cashSales: APP_DATA.cashSales, cashInvestment: APP_DATA.cashInvestment,
+    cashSalary: APP_DATA.cashSalary, cashOperational: APP_DATA.cashOperational
+  });
+  loadCashInputs(getState());
+  calculateCash();
 }
 
 initCash();

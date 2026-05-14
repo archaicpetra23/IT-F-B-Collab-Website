@@ -1,4 +1,4 @@
-// ===== SHARED DATA =====
+// ===== SHARED DEFAULT DATA =====
 const APP_DATA = {
   revenue: 100000,
   cogs: 40000,
@@ -7,6 +7,7 @@ const APP_DATA = {
   fixedCost: 50000,
   variableCostPerUnit: 20,
   sellingPrice: 50,
+  bepTarget: 2000,
   initialInvestment: 100000,
   annualCashInflow: 25000,
   // Cash flow
@@ -24,6 +25,42 @@ const APP_DATA = {
   // Growth rate for forecast
   growthRate: 10
 };
+
+// ===== CENTRALIZED STATE MANAGEMENT =====
+// Semua halaman berbagi satu state di localStorage dengan key ini.
+const STATE_KEY = 'ff_app_state';
+
+/**
+ * Ambil state saat ini. Mengembalikan default APP_DATA jika belum ada data tersimpan.
+ */
+function getState() {
+  try {
+    const saved = localStorage.getItem(STATE_KEY);
+    if (!saved) return { ...APP_DATA };
+    return { ...APP_DATA, ...JSON.parse(saved) };
+  } catch (e) {
+    localStorage.removeItem(STATE_KEY);
+    return { ...APP_DATA };
+  }
+}
+
+/**
+ * Update sebagian state. Menggabungkan partial object ke state yang ada.
+ * @param {Object} partial - Key-value pasangan yang ingin diupdate
+ */
+function setState(partial) {
+  const next = { ...getState(), ...partial };
+  localStorage.setItem(STATE_KEY, JSON.stringify(next));
+  return next;
+}
+
+/**
+ * Reset seluruh state ke nilai default APP_DATA.
+ */
+function resetState() {
+  localStorage.removeItem(STATE_KEY);
+  return { ...APP_DATA };
+}
 
 // ===== AUTH GUARD =====
 function authGuard() {

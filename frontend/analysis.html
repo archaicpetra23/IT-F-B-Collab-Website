@@ -23,6 +23,12 @@ document.getElementById('app').insertAdjacentHTML('afterbegin', renderSidebar('a
 document.querySelector('.main-content').insertAdjacentHTML('afterbegin', renderTopbar('Financial Analysis','Analisis BEP & Payback Period untuk keputusan bisnis'));
 
 let bepChart, paybackChart;
+let _bepDebounce, _pbDebounce;
+
+// ===== KONSTANTA KEAMANAN =====
+const MAX_CHART_POINTS = 20;   // Maks titik di chart
+const MAX_BEP_UNIT     = 1e8;  // 100 juta unit — di atas ini chart tidak ditampilkan
+const MAX_PB_YEARS     = 200;  // 200 tahun — di atas ini chart tidak ditampilkan
 
 document.getElementById('pageContent').innerHTML = `
 <!-- BEP Section -->
@@ -37,21 +43,21 @@ document.getElementById('pageContent').innerHTML = `
     </div>
     <div class="form-group">
       <label class="form-label">Fixed Cost (Biaya Tetap)</label>
-      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-fixed" value="50000" oninput="calculateBEP()"></div>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-fixed" value="50000" oninput="debounceBEP()"></div>
     </div>
     <div class="form-row">
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">Selling Price / Unit</label>
-        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-price" value="50" oninput="calculateBEP()"></div>
+        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-price" value="50" oninput="debounceBEP()"></div>
       </div>
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">Variable Cost / Unit</label>
-        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-var" value="20" oninput="calculateBEP()"></div>
+        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-var" value="20" oninput="debounceBEP()"></div>
       </div>
     </div>
     <div class="form-group" style="margin-top:16px">
       <label class="form-label">Target Produksi (Unit)</label>
-      <input type="number" class="form-input" id="bep-target" value="2000" oninput="calculateBEP()">
+      <input type="number" class="form-input" id="bep-target" value="2000" oninput="debounceBEP()">
     </div>
   </div>
 
@@ -101,11 +107,11 @@ document.getElementById('pageContent').innerHTML = `
     </div>
     <div class="form-group">
       <label class="form-label">Initial Investment (Modal Awal)</label>
-      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-invest" value="100000" oninput="calculatePayback()"></div>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-invest" value="100000" oninput="debouncePayback()"></div>
     </div>
     <div class="form-group" style="margin-bottom:0">
       <label class="form-label">Annual Cash Inflow (Arus Kas Tahunan)</label>
-      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-inflow" value="25000" oninput="calculatePayback()"></div>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-inflow" value="25000" oninput="debouncePayback()"></div>
     </div>
   </div>
 
@@ -139,31 +145,58 @@ document.getElementById('pageContent').innerHTML = `
 `;
 
 function calculateBEP() {
-  const fixed = +document.getElementById('bep-fixed').value || 0;
-  const price = +document.getElementById('bep-price').value || 0;
-  const variable = +document.getElementById('bep-var').value || 0;
-  const target = +document.getElementById('bep-target').value || 0;
+  const fixed    = +document.getElementById('bep-fixed').value || 0;
+  const price    = +document.getElementById('bep-price').value || 0;
+  const variable = +document.getElementById('bep-var').value   || 0;
+  const target   = +document.getElementById('bep-target').value || 0;
   const cm = price - variable;
+
+  // --- Validasi ---
   if (cm <= 0) {
     document.getElementById('bep-unit-result').textContent = 'Error';
-    document.getElementById('bep-rev-result').textContent = 'Margin Negatif';
+    document.getElementById('bep-rev-result').textContent  = 'Margin Negatif';
+    document.getElementById('bep-cm').textContent          = '–';
+    document.getElementById('bep-vs-target').textContent   = '⚠️ Harga jual harus > biaya variabel';
+    document.getElementById('bep-mos').textContent         = '–';
+    if (bepChart) { bepChart.destroy(); bepChart = null; }
     return;
   }
+
   const bepUnit = Math.ceil(fixed / cm);
-  const bepRev = bepUnit * price;
-  const mos = target > bepUnit ? (((target - bepUnit) / target) * 100).toFixed(1) : 0;
+  const bepRev  = bepUnit * price;
+  const mos     = target > bepUnit ? (((target - bepUnit) / target) * 100).toFixed(1) : 0;
 
   document.getElementById('bep-unit-result').textContent = bepUnit.toLocaleString('id-ID');
-  document.getElementById('bep-rev-result').textContent = formatRp(bepRev);
-  document.getElementById('bep-cm').textContent = formatRp(cm) + ' / unit';
-  document.getElementById('bep-vs-target').textContent = target >= bepUnit ? `✅ Aman (+${(target - bepUnit).toLocaleString('id-ID')} unit)` : `⚠️ Kurang ${(bepUnit - target).toLocaleString('id-ID')} unit`;
-  document.getElementById('bep-mos').textContent = mos + '%';
-  document.getElementById('bep-profitability').textContent = target >= bepUnit ? 'Profitable' : 'At Risk';
-  document.getElementById('bep-profitability').className = target >= bepUnit ? 'badge badge-green' : 'badge badge-red';
+  document.getElementById('bep-rev-result').textContent  = formatRp(bepRev);
+  document.getElementById('bep-cm').textContent          = formatRp(cm) + ' / unit';
+  document.getElementById('bep-vs-target').textContent   = target >= bepUnit
+    ? `✅ Aman (+${(target - bepUnit).toLocaleString('id-ID')} unit)`
+    : `⚠️ Kurang ${(bepUnit - target).toLocaleString('id-ID')} unit`;
+  document.getElementById('bep-mos').textContent         = mos + '%';
+  document.getElementById('bep-profitability').textContent  = target >= bepUnit ? 'Profitable' : 'At Risk';
+  document.getElementById('bep-profitability').className    = target >= bepUnit ? 'badge badge-green' : 'badge badge-red';
 
-  const units = Array.from({length:Math.max(bepUnit*2,target+200)}, (_,i) => i+1).filter((_,i) => i % Math.max(1, Math.floor(bepUnit/10)) === 0).slice(0, 20);
+  // --- Guard: jangan render chart jika terlalu besar ---
+  if (bepUnit > MAX_BEP_UNIT) {
+    if (bepChart) { bepChart.destroy(); bepChart = null; }
+    const ctx = document.getElementById('bepChart').getContext('2d');
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = '#9ca3af';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠️ Nilai terlalu besar untuk ditampilkan dalam grafik', ctx.canvas.width / 2, 80);
+    return;
+  }
+
+  // --- Buat 20 titik merata (linspace) — TIDAK membuat array jutaan elemen ---
+  const maxUnit  = Math.max(bepUnit * 2, target * 1.2, bepUnit + 100);
+  const step     = Math.ceil(maxUnit / MAX_CHART_POINTS);
+  const units    = Array.from({length: MAX_CHART_POINTS}, (_, i) => (i + 1) * step);
   const totalCost = units.map(u => fixed + u * variable);
-  const totalRev = units.map(u => u * price);
+  const totalRev  = units.map(u => u * price);
+  const bepIdx    = units.findIndex(u => u >= bepUnit);
+  const bepData   = units.map((_, i) => i === bepIdx ? bepRev : null);
+  const bepRadius = units.map((_, i) => i === bepIdx ? 8 : 0);
 
   const ctx = document.getElementById('bepChart').getContext('2d');
   if (bepChart) bepChart.destroy();
@@ -173,34 +206,76 @@ function calculateBEP() {
       labels: units.map(u => u.toLocaleString('id-ID') + ' unit'),
       datasets: [
         { label: 'Total Revenue', data: totalRev, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', tension: 0.1, fill: false, pointRadius: 0, borderWidth: 2.5 },
-        { label: 'Total Cost', data: totalCost, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', tension: 0.1, fill: false, pointRadius: 0, borderWidth: 2.5 },
-        { label: 'BEP Point', data: units.map(u => u === units.find(x => x >= bepUnit) ? bepRev : null), borderColor: '#f97316', backgroundColor: '#f97316', pointRadius: units.map(u => u === units.find(x => x >= bepUnit) ? 8 : 0), showLine: false }
+        { label: 'Total Cost',    data: totalCost, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', tension: 0.1, fill: false, pointRadius: 0, borderWidth: 2.5 },
+        { label: 'BEP Point',     data: bepData, borderColor: '#f97316', backgroundColor: '#f97316', pointRadius: bepRadius, showLine: false }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
-      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 } } } }
+      animation: { duration: 300 },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: c => ' ' + formatRp(c.raw) } } },
+      scales: {
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp ' + v.toLocaleString('id-ID'), font: { size: 10 } } },
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 } } }
+      }
     }
   });
 }
 
 function calculatePayback() {
-  const invest = +document.getElementById('pb-invest').value || 0;
-  const inflow = +document.getElementById('pb-inflow').value || 1;
-  const pp = invest / inflow;
-  const roi5 = ((inflow * 5 - invest) / invest * 100).toFixed(1);
+  const invest  = +document.getElementById('pb-invest').value || 0;
+  const inflow  = +document.getElementById('pb-inflow').value || 1;
 
-  document.getElementById('pb-years-big').textContent = pp.toFixed(2);
-  document.getElementById('pb-years-label').textContent = pp < 2 ? 'tahun 🚀 Sangat Cepat' : pp < 5 ? 'tahun ✅ Baik' : 'tahun ⚠️ Pertimbangkan Kembali';
-  document.getElementById('pb-r-inflow').textContent = formatRp(inflow);
-  document.getElementById('pb-status').textContent = pp < 5 ? '✅ Layak Investasi' : '⚠️ Pertimbangkan Ulang';
-  document.getElementById('pb-roi').textContent = roi5 + '% (5 tahun)';
-  document.getElementById('pb-status-badge').textContent = pp < 5 ? 'Layak' : 'Risiko';
-  document.getElementById('pb-status-badge').className = pp < 5 ? 'badge badge-green' : 'badge badge-red';
+  // --- Guard: inflow nol/negatif ---
+  if (inflow <= 0) {
+    document.getElementById('pb-years-big').textContent   = '∞';
+    document.getElementById('pb-years-label').textContent = 'tahun — Arus kas harus > 0';
+    document.getElementById('pb-r-inflow').textContent    = formatRp(inflow);
+    document.getElementById('pb-status').textContent      = '⚠️ Tidak valid';
+    document.getElementById('pb-roi').textContent         = '–';
+    return;
+  }
 
-  const years = Array.from({length: Math.ceil(pp) + 3}, (_, i) => i + 1);
-  const cumCash = years.map(y => y * inflow);
+  const pp    = invest / inflow;
+  const roi5  = invest > 0 ? ((inflow * 5 - invest) / invest * 100).toFixed(1) : 'N/A';
+
+  document.getElementById('pb-years-big').textContent   = pp >= 1000 ? '> 1.000' : pp.toFixed(2);
+  document.getElementById('pb-years-label').textContent = pp < 2
+    ? 'tahun 🚀 Sangat Cepat'
+    : pp < 5  ? 'tahun ✅ Baik'
+    : pp < 50 ? 'tahun ⚠️ Pertimbangkan Kembali'
+    : 'tahun ❌ Tidak Layak';
+  document.getElementById('pb-r-inflow').textContent    = formatRp(inflow);
+  document.getElementById('pb-status').textContent      = pp < 5  ? '✅ Layak Investasi'
+    : pp < 20 ? '⚠️ Pertimbangkan Ulang' : '❌ Tidak Layak';
+  document.getElementById('pb-roi').textContent         = roi5 + '% (5 tahun)';
+  document.getElementById('pb-status-badge').textContent = pp < 5 ? 'Layak' : pp < 20 ? 'Risiko' : 'Tidak Layak';
+  document.getElementById('pb-status-badge').className  = pp < 5 ? 'badge badge-green' : pp < 20 ? 'badge badge-orange' : 'badge badge-red';
+
+  // --- Guard: jangan render chart jika period terlalu besar ---
+  if (pp > MAX_PB_YEARS) {
+    if (paybackChart) { paybackChart.destroy(); paybackChart = null; }
+    const ctx2 = document.getElementById('paybackChart').getContext('2d');
+    ctx2.clearRect(0, 0, ctx2.canvas.width, ctx2.canvas.height);
+    ctx2.font      = '14px Inter, sans-serif';
+    ctx2.fillStyle = '#9ca3af';
+    ctx2.textAlign = 'center';
+    ctx2.fillText(
+      `⚠️ Payback Period ${pp >= 1000 ? '> 1.000' : Math.round(pp)} tahun — terlalu besar untuk divisualisasikan`,
+      ctx2.canvas.width / 2, 80
+    );
+    return;
+  }
+
+  // --- Buat maks 20 titik merata (linspace) ---
+  const totalYears = Math.ceil(pp) + 3;
+  const step       = Math.max(1, Math.ceil(totalYears / MAX_CHART_POINTS));
+  const years      = Array.from(
+    {length: Math.ceil(totalYears / step)},
+    (_, i) => (i + 1) * step
+  ).filter(y => y <= totalYears + step);
+
+  const cumCash   = years.map(y => y * inflow);
   const investLine = years.map(() => invest);
 
   const ctx2 = document.getElementById('paybackChart').getContext('2d');
@@ -210,40 +285,84 @@ function calculatePayback() {
     data: {
       labels: years.map(y => 'Tahun ' + y),
       datasets: [
-        { label: 'Kumulatif Cash Flow', data: cumCash, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#16a34a', pointRadius: 5, borderWidth: 2.5 },
-        { label: 'Initial Investment', data: investLine, borderColor: '#f97316', borderDash: [8, 4], backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+        { label: 'Kumulatif Cash Flow', data: cumCash,    borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#16a34a', pointRadius: 4, borderWidth: 2.5 },
+        { label: 'Initial Investment',  data: investLine, borderColor: '#f97316', borderDash: [8, 4], backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
-      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 11 } } }, x: { grid: { display: false } } }
+      animation: { duration: 300 },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: c => ' ' + formatRp(c.raw) } } },
+      scales: {
+        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp ' + v.toLocaleString('id-ID'), font: { size: 11 } } },
+        x: { grid: { display: false } }
+      }
     }
   });
 }
 
-async function initAnalysis() {
-  try {
-    const response = await fetch('/api/financial-analysis');
-    const d = await response.json();
-    
-    document.getElementById('bep-fixed').value = d.bep.fixedCost;
-    document.getElementById('bep-price').value = d.bep.sellingPrice;
-    document.getElementById('bep-var').value = d.bep.variableCost;
-    document.getElementById('pb-invest').value = d.paybackPeriod.initialInvestment;
-    document.getElementById('pb-inflow').value = d.paybackPeriod.annualCashInflow;
-    
-    calculateBEP();
-    calculatePayback();
-  } catch (err) {
-    console.error('Failed to load analysis data:', err);
-    calculateBEP();
-    calculatePayback();
-  }
+// ===== DEBOUNCE WRAPPERS =====
+// Tunda kalkulasi 400ms setelah berhenti mengetik — mencegah lag saat input angka besar
+function debounceBEP() {
+  saveBEPInputs();
+  clearTimeout(_bepDebounce);
+  _bepDebounce = setTimeout(calculateBEP, 400);
 }
 
-function resetBEP() { initAnalysis(); }
-function resetPayback() { initAnalysis(); }
+function debouncePayback() {
+  savePBInputs();
+  clearTimeout(_pbDebounce);
+  _pbDebounce = setTimeout(calculatePayback, 400);
+}
+
+function saveBEPInputs() {
+  setState({
+    fixedCost:           +document.getElementById('bep-fixed').value  || 0,
+    sellingPrice:        +document.getElementById('bep-price').value  || 0,
+    variableCostPerUnit: +document.getElementById('bep-var').value    || 0,
+    bepTarget:           +document.getElementById('bep-target').value || 0
+  });
+}
+
+function savePBInputs() {
+  setState({
+    initialInvestment: +document.getElementById('pb-invest').value  || 0,
+    annualCashInflow:  +document.getElementById('pb-inflow').value   || 1
+  });
+}
+
+function loadAnalysisInputs(s) {
+  document.getElementById('bep-fixed').value  = s.fixedCost;
+  document.getElementById('bep-price').value  = s.sellingPrice;
+  document.getElementById('bep-var').value    = s.variableCostPerUnit;
+  document.getElementById('bep-target').value = s.bepTarget;
+  document.getElementById('pb-invest').value  = s.initialInvestment;
+  document.getElementById('pb-inflow').value  = s.annualCashInflow;
+}
+
+function initAnalysis() {
+  loadAnalysisInputs(getState());
+  calculateBEP();
+  calculatePayback();
+}
+
+function resetBEP() {
+  setState({
+    fixedCost: APP_DATA.fixedCost, sellingPrice: APP_DATA.sellingPrice,
+    variableCostPerUnit: APP_DATA.variableCostPerUnit, bepTarget: APP_DATA.bepTarget
+  });
+  loadAnalysisInputs(getState());
+  calculateBEP();
+}
+
+function resetPayback() {
+  setState({
+    initialInvestment: APP_DATA.initialInvestment,
+    annualCashInflow: APP_DATA.annualCashInflow
+  });
+  loadAnalysisInputs(getState());
+  calculatePayback();
+}
 
 initAnalysis();
 </script>

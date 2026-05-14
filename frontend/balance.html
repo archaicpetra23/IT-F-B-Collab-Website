@@ -34,9 +34,9 @@ document.getElementById('pageContent').innerHTML = `
         Assets (Aset)
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Cash / Kas</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-cash" value="35000" oninput="calculateBS()"></div></div>
-    <div class="form-group"><label class="form-label">Inventory / Persediaan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-inventory" value="25000" oninput="calculateBS()"></div></div>
-    <div class="form-group" style="margin-bottom:0"><label class="form-label">Equipment / Peralatan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-equipment" value="40000" oninput="calculateBS()"></div></div>
+    <div class="form-group"><label class="form-label">Cash / Kas</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-cash" value="35000" oninput="saveBSInputs();calculateBS()"></div></div>
+    <div class="form-group"><label class="form-label">Inventory / Persediaan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-inventory" value="25000" oninput="saveBSInputs();calculateBS()"></div></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Equipment / Peralatan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-equipment" value="40000" oninput="saveBSInputs();calculateBS()"></div></div>
     <div style="margin-top:16px;padding:12px;background:var(--primary-bg);border-radius:var(--radius);text-align:center;border:1px solid var(--green-200)">
       <div style="font-size:11px;color:var(--gray-500)">Total Assets</div>
       <div style="font-size:22px;font-weight:700;color:var(--primary-dark);font-family:'Outfit',sans-serif" id="bs-total-assets">–</div>
@@ -51,8 +51,8 @@ document.getElementById('pageContent').innerHTML = `
         Liabilities (Utang)
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Debt / Hutang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-debt" value="30000" oninput="calculateBS()"></div></div>
-    <div class="form-group" style="margin-bottom:0"><label class="form-label">Payables / Hutang Dagang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-payables" value="10000" oninput="calculateBS()"></div></div>
+    <div class="form-group"><label class="form-label">Debt / Hutang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-debt" value="30000" oninput="saveBSInputs();calculateBS()"></div></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Payables / Hutang Dagang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-payables" value="10000" oninput="saveBSInputs();calculateBS()"></div></div>
     <div style="margin-top:16px;padding:12px;background:#fee2e2;border-radius:var(--radius);text-align:center;border:1px solid #fca5a5">
       <div style="font-size:11px;color:var(--gray-500)">Total Liabilities</div>
       <div style="font-size:22px;font-weight:700;color:#b91c1c;font-family:'Outfit',sans-serif" id="bs-total-liab">–</div>
@@ -67,7 +67,7 @@ document.getElementById('pageContent').innerHTML = `
         Equity (Modal)
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:0"><label class="form-label">Capital / Modal Awal</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-capital" value="60000" oninput="calculateBS()"></div></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Capital / Modal Awal</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-capital" value="60000" oninput="saveBSInputs();calculateBS()"></div></div>
     <div style="margin-top:16px;padding:12px;background:var(--orange-50);border-radius:var(--radius);text-align:center;border:1px solid var(--orange-200)">
       <div style="font-size:11px;color:var(--gray-500)">Total Equity</div>
       <div style="font-size:22px;font-weight:700;color:var(--secondary-dark);font-family:'Outfit',sans-serif" id="bs-total-equity">–</div>
@@ -168,23 +168,38 @@ function calculateBS() {
   });
 }
 
-async function initBS() {
-  try {
-    const response = await fetch('/api/balance-sheet');
-    const d = await response.json();
-    
-    document.getElementById('bs-cash').value = d.assets.cash;
-    document.getElementById('bs-inventory').value = d.assets.inventory;
-    document.getElementById('bs-equipment').value = d.assets.equipment;
-    document.getElementById('bs-debt').value = d.liabilities.debt;
-    document.getElementById('bs-payables').value = d.liabilities.payables;
-    document.getElementById('bs-capital').value = d.equity.capital;
-    
-    calculateBS();
-  } catch (err) {
-    console.error('Failed to load balance sheet data:', err);
-    calculateBS(); // Fallback to defaults
-  }
+function saveBSInputs() {
+  setState({
+    cash:      +document.getElementById('bs-cash').value      || 0,
+    inventory: +document.getElementById('bs-inventory').value || 0,
+    equipment: +document.getElementById('bs-equipment').value || 0,
+    debt:      +document.getElementById('bs-debt').value      || 0,
+    payables:  +document.getElementById('bs-payables').value  || 0,
+    capital:   +document.getElementById('bs-capital').value   || 0
+  });
+}
+
+function loadBSInputs(s) {
+  document.getElementById('bs-cash').value      = s.cash;
+  document.getElementById('bs-inventory').value = s.inventory;
+  document.getElementById('bs-equipment').value = s.equipment;
+  document.getElementById('bs-debt').value      = s.debt;
+  document.getElementById('bs-payables').value  = s.payables;
+  document.getElementById('bs-capital').value   = s.capital;
+}
+
+function initBS() {
+  loadBSInputs(getState());
+  calculateBS();
+}
+
+function resetBS() {
+  setState({
+    cash: APP_DATA.cash, inventory: APP_DATA.inventory, equipment: APP_DATA.equipment,
+    debt: APP_DATA.debt, payables: APP_DATA.payables, capital: APP_DATA.capital
+  });
+  loadBSInputs(getState());
+  calculateBS();
 }
 
 initBS();
