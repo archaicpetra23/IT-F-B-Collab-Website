@@ -168,7 +168,26 @@ function calculateBS() {
   });
 }
 
-calculateBS();
+async function initBS() {
+  try {
+    const response = await fetch('/api/balance-sheet');
+    const d = await response.json();
+    
+    document.getElementById('bs-cash').value = d.assets.cash;
+    document.getElementById('bs-inventory').value = d.assets.inventory;
+    document.getElementById('bs-equipment').value = d.assets.equipment;
+    document.getElementById('bs-debt').value = d.liabilities.debt;
+    document.getElementById('bs-payables').value = d.liabilities.payables;
+    document.getElementById('bs-capital').value = d.equity.capital;
+    
+    calculateBS();
+  } catch (err) {
+    console.error('Failed to load balance sheet data:', err);
+    calculateBS(); // Fallback to defaults
+  }
+}
+
+initBS();
 </script>
 </body>
 </html>

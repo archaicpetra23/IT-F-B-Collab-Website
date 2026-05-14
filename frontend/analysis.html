@@ -185,14 +185,6 @@ function calculateBEP() {
   });
 }
 
-function resetBEP() {
-  document.getElementById('bep-fixed').value = 50000;
-  document.getElementById('bep-price').value = 50;
-  document.getElementById('bep-var').value = 20;
-  document.getElementById('bep-target').value = 2000;
-  calculateBEP();
-}
-
 function calculatePayback() {
   const invest = +document.getElementById('pb-invest').value || 0;
   const inflow = +document.getElementById('pb-inflow').value || 1;
@@ -230,14 +222,30 @@ function calculatePayback() {
   });
 }
 
-function resetPayback() {
-  document.getElementById('pb-invest').value = 100000;
-  document.getElementById('pb-inflow').value = 25000;
-  calculatePayback();
+async function initAnalysis() {
+  try {
+    const response = await fetch('/api/financial-analysis');
+    const d = await response.json();
+    
+    document.getElementById('bep-fixed').value = d.bep.fixedCost;
+    document.getElementById('bep-price').value = d.bep.sellingPrice;
+    document.getElementById('bep-var').value = d.bep.variableCost;
+    document.getElementById('pb-invest').value = d.paybackPeriod.initialInvestment;
+    document.getElementById('pb-inflow').value = d.paybackPeriod.annualCashInflow;
+    
+    calculateBEP();
+    calculatePayback();
+  } catch (err) {
+    console.error('Failed to load analysis data:', err);
+    calculateBEP();
+    calculatePayback();
+  }
 }
 
-calculateBEP();
-calculatePayback();
+function resetBEP() { initAnalysis(); }
+function resetPayback() { initAnalysis(); }
+
+initAnalysis();
 </script>
 </body>
 </html>

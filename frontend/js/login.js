@@ -44,21 +44,33 @@ function setLoading(on) {
   }
 }
 
-loginForm.addEventListener('submit', (e) => {
+loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideAlert();
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   setLoading(true);
 
-  setTimeout(() => {
-    if (email === CREDENTIALS.email && password === CREDENTIALS.password) {
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
       localStorage.setItem('ff_auth', JSON.stringify({ email, loggedAt: new Date().toISOString() }));
       loginBtnText.textContent = 'Berhasil! Mengalihkan...';
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
     } else {
       setLoading(false);
-      showAlert('Email atau password salah. Gunakan demo credentials di bawah.');
+      showAlert(result.message || 'Email atau password salah.');
     }
-  }, 1200);
+  } catch (error) {
+    setLoading(false);
+    showAlert('Gagal terhubung ke server. Pastikan backend berjalan.');
+    console.error('Login error:', error);
+  }
 });

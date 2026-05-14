@@ -175,15 +175,28 @@ function calculateCash() {
   });
 }
 
-function resetCash() {
-  document.getElementById('cf-sales').value = 100000;
-  document.getElementById('cf-invest').value = 20000;
-  document.getElementById('cf-salary').value = 30000;
-  document.getElementById('cf-ops').value = 15000;
-  calculateCash();
+async function initCash() {
+  try {
+    const response = await fetch('/api/cash-flow');
+    const d = await response.json();
+    
+    document.getElementById('cf-sales').value = d.cashIn.sales;
+    document.getElementById('cf-invest').value = d.cashIn.investment;
+    document.getElementById('cf-salary').value = d.cashOut.salary;
+    document.getElementById('cf-ops').value = d.cashOut.operational;
+    
+    calculateCash();
+  } catch (err) {
+    console.error('Failed to load cash flow data:', err);
+    calculateCash(); // Fallback to defaults
+  }
 }
 
-calculateCash();
+function resetCash() {
+  initCash();
+}
+
+initCash();
 </script>
 </body>
 </html>

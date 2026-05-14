@@ -157,16 +157,29 @@ function calculateIncome() {
   });
 }
 
-function resetIncome() {
-  document.getElementById('i-revenue').value = 100000;
-  document.getElementById('i-cogs').value = 40000;
-  document.getElementById('i-expense').value = 20000;
-  document.getElementById('i-tax').value = 5000;
-  document.getElementById('i-growth').value = 10;
-  calculateIncome();
+async function initIncome() {
+  try {
+    const response = await fetch('/api/income-statement');
+    const d = await response.json();
+    
+    document.getElementById('i-revenue').value = d.revenue;
+    document.getElementById('i-cogs').value = d.cogs;
+    document.getElementById('i-expense').value = d.expenses;
+    document.getElementById('i-tax').value = d.tax;
+    document.getElementById('i-growth').value = parseInt(d.forecast.growthRate);
+    
+    calculateIncome();
+  } catch (err) {
+    console.error('Failed to load income data:', err);
+    calculateIncome(); // Fallback to defaults
+  }
 }
 
-calculateIncome();
+function resetIncome() {
+  initIncome();
+}
+
+initIncome();
 </script>
 </body>
 </html>

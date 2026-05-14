@@ -15,7 +15,7 @@ const dataPath = path.join(__dirname, 'data/financial-data.json');
 const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
 
 // ===== POST /login =====
-app.post('/login', (req, res) => {
+app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
   if (email === 'admin@test.com' && password === 'admin123') {
     return res.json({ success: true, message: 'Login berhasil', user: { email, role: 'admin' } });
@@ -24,7 +24,7 @@ app.post('/login', (req, res) => {
 });
 
 // ===== GET /income-statement =====
-app.get('/income-statement', (req, res) => {
+app.get('/api/income-statement', (req, res) => {
   const { revenue, cogs, expenses, tax } = data;
   const grossProfit = revenue - cogs;
   const netProfit = grossProfit - expenses - tax;
@@ -42,7 +42,7 @@ app.get('/income-statement', (req, res) => {
 });
 
 // ===== GET /cash-flow =====
-app.get('/cash-flow', (req, res) => {
+app.get('/api/cash-flow', (req, res) => {
   const { cashSales, cashInvestment, cashSalary, cashOperational } = data;
   const totalCashIn = cashSales + cashInvestment;
   const totalCashOut = cashSalary + cashOperational;
@@ -56,7 +56,7 @@ app.get('/cash-flow', (req, res) => {
 });
 
 // ===== GET /balance-sheet =====
-app.get('/balance-sheet', (req, res) => {
+app.get('/api/balance-sheet', (req, res) => {
   const { cash, inventory, equipment, debt, payables, capital } = data;
   const totalAssets = cash + inventory + equipment;
   const totalLiabilities = debt + payables;
@@ -70,7 +70,7 @@ app.get('/balance-sheet', (req, res) => {
 });
 
 // ===== GET /financial-analysis =====
-app.get('/financial-analysis', (req, res) => {
+app.get('/api/financial-analysis', (req, res) => {
   const { fixedCost, sellingPrice, variableCost, initialInvestment, annualCashInflow } = data;
   const contributionMargin = sellingPrice - variableCost;
   const bepUnit = Math.ceil(fixedCost / contributionMargin);
@@ -83,11 +83,41 @@ app.get('/financial-analysis', (req, res) => {
   });
 });
 
-// Serve frontend index for unknown routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+// ===== GET /api/dashboard (Summary) =====
+app.get('/api/dashboard', (req, res) => {
+  const { 
+    revenue, cogs, expenses, tax, growthRate,
+    cashSales, cashInvestment, cashSalary, cashOperational,
+    cash, inventory, equipment, debt, payables, capital,
+    fixedCost, sellingPrice, variableCost, initialInvestment, annualCashInflow
+  } = data;
+
+  const grossProfit = revenue - cogs;
+  const netProfit = grossProfit - expenses - tax;
+  const netCashFlow = (cashSales + cashInvestment) - (cashSalary + cashOperational);
+  const totalAssets = cash + inventory + equipment;
+  const totalLiabilities = debt + payables;
+  
+  const contributionMargin = sellingPrice - variableCost;
+  const bepUnit = Math.ceil(fixedCost / contributionMargin);
+  const bepRevenue = bepUnit * sellingPrice;
+  const paybackPeriod = (initialInvestment / annualCashInflow).toFixed(2);
+
+  res.json({
+    summary: {
+      revenue, netProfit, netCashFlow, bepRevenue, bepUnit,
+      profitMargin: ((netProfit / revenue) * 100).toFixed(1),
+      totalAssets, totalLiabilities, paybackPeriod
+    },
+    raw: data
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ FinForecast Server running at http://localhost:${PORT}`);
-});
+// Only listen if running directly (local dev)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`✅ FinForecast Server running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
