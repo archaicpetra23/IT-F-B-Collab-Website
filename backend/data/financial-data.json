@@ -1,0 +1,22 @@
+{
+  "revenue": 100000,
+  "cogs": 40000,
+  "expenses": 20000,
+  "tax": 5000,
+  "fixedCost": 50000,
+  "variableCost": 20,
+  "sellingPrice": 50,
+  "initialInvestment": 100000,
+  "annualCashInflow": 25000,
+  "cashSales": 100000,
+  "cashInvestment": 20000,
+  "cashSalary": 30000,
+  "cashOperational": 15000,
+  "cash": 35000,
+  "inventory": 25000,
+  "equipment": 40000,
+  "debt": 30000,
+  "payables": 10000,
+  "capital": 60000,
+  "growthRate": 10
+}

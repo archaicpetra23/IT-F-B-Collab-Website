@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balance Sheet — FinForecast</title>
+  <meta name="description" content="Forecast neraca keuangan perusahaan dengan analisis aset, liabilitas, dan ekuitas.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-layout" id="app">
+  <div class="main-content">
+    <div class="page-content" id="pageContent"></div>
+  </div>
+</div>
+<script src="js/shared.js"></script>
+<script>
+authGuard();
+document.getElementById('app').insertAdjacentHTML('afterbegin', renderSidebar('balance'));
+document.querySelector('.main-content').insertAdjacentHTML('afterbegin', renderTopbar('Balance Sheet Forecast','Neraca keuangan: Aset, Liabilitas, dan Ekuitas'));
+
+let bsChart;
+
+document.getElementById('pageContent').innerHTML = `
+<div class="grid-3 animate-fade-up" style="margin-bottom:24px;align-items:start">
+  <!-- Assets -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <div style="width:10px;height:10px;background:var(--primary);border-radius:50%"></div>
+        Assets (Aset)
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Cash / Kas</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-cash" value="35000" oninput="calculateBS()"></div></div>
+    <div class="form-group"><label class="form-label">Inventory / Persediaan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-inventory" value="25000" oninput="calculateBS()"></div></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Equipment / Peralatan</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-equipment" value="40000" oninput="calculateBS()"></div></div>
+    <div style="margin-top:16px;padding:12px;background:var(--primary-bg);border-radius:var(--radius);text-align:center;border:1px solid var(--green-200)">
+      <div style="font-size:11px;color:var(--gray-500)">Total Assets</div>
+      <div style="font-size:22px;font-weight:700;color:var(--primary-dark);font-family:'Outfit',sans-serif" id="bs-total-assets">–</div>
+    </div>
+  </div>
+
+  <!-- Liabilities -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <div style="width:10px;height:10px;background:#ef4444;border-radius:50%"></div>
+        Liabilities (Utang)
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Debt / Hutang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-debt" value="30000" oninput="calculateBS()"></div></div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Payables / Hutang Dagang</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-payables" value="10000" oninput="calculateBS()"></div></div>
+    <div style="margin-top:16px;padding:12px;background:#fee2e2;border-radius:var(--radius);text-align:center;border:1px solid #fca5a5">
+      <div style="font-size:11px;color:var(--gray-500)">Total Liabilities</div>
+      <div style="font-size:22px;font-weight:700;color:#b91c1c;font-family:'Outfit',sans-serif" id="bs-total-liab">–</div>
+    </div>
+  </div>
+
+  <!-- Equity -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <div style="width:10px;height:10px;background:var(--secondary);border-radius:50%"></div>
+        Equity (Modal)
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:0"><label class="form-label">Capital / Modal Awal</label><div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bs-capital" value="60000" oninput="calculateBS()"></div></div>
+    <div style="margin-top:16px;padding:12px;background:var(--orange-50);border-radius:var(--radius);text-align:center;border:1px solid var(--orange-200)">
+      <div style="font-size:11px;color:var(--gray-500)">Total Equity</div>
+      <div style="font-size:22px;font-weight:700;color:var(--secondary-dark);font-family:'Outfit',sans-serif" id="bs-total-equity">–</div>
+    </div>
+    <div style="margin-top:12px;padding:12px;border-radius:var(--radius);text-align:center;border:2px solid var(--gray-200)" id="bs-balance-check">
+      <div style="font-size:11px;color:var(--gray-500)">Balance Check</div>
+      <div style="font-size:14px;font-weight:700;margin-top:4px" id="bs-balance-text">–</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 animate-fade-up delay-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Distribusi Neraca</div>
+    </div>
+    <canvas id="bsChart" height="250"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Ringkasan Neraca</div>
+      <span class="badge badge-green">Akrual</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0">
+      <div style="padding:14px 0;border-bottom:1px dashed var(--gray-200)">
+        <div style="font-size:12px;font-weight:700;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">ASSETS</div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Cash</span><span id="bs-r-cash" class="result-value" style="font-size:14px">–</span></div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Inventory</span><span id="bs-r-inv" class="result-value" style="font-size:14px">–</span></div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Equipment</span><span id="bs-r-equip" class="result-value" style="font-size:14px">–</span></div>
+        <div class="result-item" style="padding:6px 0;border-top:2px solid var(--gray-200);margin-top:6px;border-bottom:none"><span class="result-label" style="font-weight:700">Total Assets</span><span id="bs-r-ta" class="result-value highlight" style="font-size:16px">–</span></div>
+      </div>
+      <div style="padding:14px 0;border-bottom:1px dashed var(--gray-200)">
+        <div style="font-size:12px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">LIABILITIES</div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Debt</span><span id="bs-r-debt" class="result-value" style="font-size:14px;color:#ef4444">–</span></div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Payables</span><span id="bs-r-pay" class="result-value" style="font-size:14px;color:#ef4444">–</span></div>
+        <div class="result-item" style="padding:6px 0;border-top:2px solid var(--gray-200);margin-top:6px;border-bottom:none"><span class="result-label" style="font-weight:700">Total Liab.</span><span id="bs-r-tl" class="result-value highlight" style="font-size:16px;color:#ef4444">–</span></div>
+      </div>
+      <div style="padding:14px 0">
+        <div style="font-size:12px;font-weight:700;color:var(--secondary-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">EQUITY</div>
+        <div class="result-item" style="padding:4px 0;border:none"><span class="result-label">Capital</span><span id="bs-r-cap" class="result-value" style="font-size:14px;color:var(--secondary-dark)">–</span></div>
+        <div class="result-item" style="padding:6px 0;border-top:2px solid var(--gray-200);margin-top:6px;border-bottom:none"><span class="result-label" style="font-weight:700">Total Equity</span><span id="bs-r-te" class="result-value highlight" style="font-size:16px;color:var(--secondary-dark)">–</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+function calculateBS() {
+  const cash = +document.getElementById('bs-cash').value || 0;
+  const inv = +document.getElementById('bs-inventory').value || 0;
+  const equip = +document.getElementById('bs-equipment').value || 0;
+  const debt = +document.getElementById('bs-debt').value || 0;
+  const pay = +document.getElementById('bs-payables').value || 0;
+  const cap = +document.getElementById('bs-capital').value || 0;
+
+  const ta = cash + inv + equip;
+  const tl = debt + pay;
+  const te = cap;
+  const liabEq = tl + te;
+  const balanced = Math.abs(ta - liabEq) < 1;
+
+  document.getElementById('bs-total-assets').textContent = formatRp(ta);
+  document.getElementById('bs-total-liab').textContent = formatRp(tl);
+  document.getElementById('bs-total-equity').textContent = formatRp(te);
+  document.getElementById('bs-r-cash').textContent = formatRp(cash);
+  document.getElementById('bs-r-inv').textContent = formatRp(inv);
+  document.getElementById('bs-r-equip').textContent = formatRp(equip);
+  document.getElementById('bs-r-ta').textContent = formatRp(ta);
+  document.getElementById('bs-r-debt').textContent = formatRp(debt);
+  document.getElementById('bs-r-pay').textContent = formatRp(pay);
+  document.getElementById('bs-r-tl').textContent = formatRp(tl);
+  document.getElementById('bs-r-cap').textContent = formatRp(cap);
+  document.getElementById('bs-r-te').textContent = formatRp(te);
+
+  const chk = document.getElementById('bs-balance-check');
+  const txt = document.getElementById('bs-balance-text');
+  if (balanced) {
+    txt.textContent = '✅ Neraca Seimbang'; txt.style.color = 'var(--primary)';
+    chk.style.borderColor = 'var(--green-400)'; chk.style.background = 'var(--primary-bg)';
+  } else {
+    const diff = ta - liabEq;
+    txt.textContent = `⚠️ Selisih: ${formatRp(Math.abs(diff))}`; txt.style.color = '#ef4444';
+    chk.style.borderColor = '#fca5a5'; chk.style.background = '#fee2e2';
+  }
+
+  const ctx = document.getElementById('bsChart').getContext('2d');
+  if (bsChart) bsChart.destroy();
+  bsChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Cash','Inventory','Equipment','Debt','Payables','Equity'],
+      datasets: [{ data: [cash, inv, equip, debt, pay, te], backgroundColor: ['#16a34a','#22c55e','#86efac','#ef4444','#fca5a5','#f97316'], borderWidth: 0, hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: { legend: { position: 'right', labels: { font: { family: 'Inter', size: 11 }, padding: 10 } }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } }
+    }
+  });
+}
+
+calculateBS();
+</script>
+</body>
+</html>

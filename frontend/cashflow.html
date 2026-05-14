@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cash Flow — FinForecast</title>
+  <meta name="description" content="Forecast arus kas masuk dan keluar perusahaan.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-layout" id="app">
+  <div class="main-content">
+    <div class="page-content" id="pageContent"></div>
+  </div>
+</div>
+<script src="js/shared.js"></script>
+<script>
+authGuard();
+document.getElementById('app').insertAdjacentHTML('afterbegin', renderSidebar('cashflow'));
+document.querySelector('.main-content').insertAdjacentHTML('afterbegin', renderTopbar('Cash Flow Forecast','Analisis arus kas masuk dan keluar perusahaan'));
+
+let cashChart;
+
+document.getElementById('pageContent').innerHTML = `
+<div class="grid-2 animate-fade-up" style="margin-bottom:24px;align-items:start">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Input Cash Flow</div>
+      <button class="btn btn-outline" onclick="resetCash()" style="padding:6px 14px;font-size:13px">Reset</button>
+    </div>
+
+    <div style="background:var(--primary-bg);border-radius:var(--radius);padding:16px;margin-bottom:16px;border:1px solid var(--green-200)">
+      <div style="font-size:12px;font-weight:700;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="12 5 19 12 12 19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Cash In
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Sales Revenue</label>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-sales" value="100000" min="0" oninput="calculateCash()"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Investment Cash</label>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-invest" value="20000" min="0" oninput="calculateCash()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--orange-50);border-radius:var(--radius);padding:16px;border:1px solid var(--orange-200)">
+      <div style="font-size:12px;font-weight:700;color:var(--orange-700);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="12 19 5 12 12 5"/><line x1="19" y1="12" x2="5" y2="12"/></svg>
+        Cash Out
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Salary / Gaji</label>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-salary" value="30000" min="0" oninput="calculateCash()"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Operational Cost</label>
+          <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="cf-ops" value="15000" min="0" oninput="calculateCash()"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Hasil Cash Flow</div>
+      <span class="badge badge-green" id="cf-status-badge">Surplus</span>
+    </div>
+    <div class="grid-2" style="margin-bottom:16px">
+      <div style="background:var(--primary-bg);border-radius:var(--radius);padding:14px;text-align:center;border:1px solid var(--green-200)">
+        <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Total Cash In</div>
+        <div style="font-size:18px;font-weight:700;font-family:'Outfit',sans-serif;color:var(--primary-dark)" id="cf-in">Rp 0</div>
+      </div>
+      <div style="background:var(--orange-50);border-radius:var(--radius);padding:14px;text-align:center;border:1px solid var(--orange-200)">
+        <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">Total Cash Out</div>
+        <div style="font-size:18px;font-weight:700;font-family:'Outfit',sans-serif;color:var(--secondary-dark)" id="cf-out">Rp 0</div>
+      </div>
+    </div>
+    <div class="result-box">
+      <div class="result-item">
+        <span class="result-label">Net Cash Flow</span>
+        <span class="result-value highlight" id="cf-net">–</span>
+      </div>
+      <div class="result-item">
+        <span class="result-label">Status</span>
+        <span id="cf-status" class="result-value">–</span>
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <div style="font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:10px">Cash Utilization</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:12px;color:var(--gray-600)">Salary</span>
+            <span style="font-size:12px;font-weight:600" id="cf-pct-salary">–</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill orange" id="cf-bar-salary" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:12px;color:var(--gray-600)">Operational</span>
+            <span style="font-size:12px;font-weight:600" id="cf-pct-ops">–</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill green" id="cf-bar-ops" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card animate-fade-up delay-2">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Visualisasi Cash Flow</div>
+      <div class="card-subtitle">Perbandingan kas masuk dan keluar</div>
+    </div>
+  </div>
+  <canvas id="cashChart" height="100"></canvas>
+</div>
+`;
+
+function calculateCash() {
+  const sales = +document.getElementById('cf-sales').value || 0;
+  const invest = +document.getElementById('cf-invest').value || 0;
+  const salary = +document.getElementById('cf-salary').value || 0;
+  const ops = +document.getElementById('cf-ops').value || 0;
+
+  const totalIn = sales + invest;
+  const totalOut = salary + ops;
+  const net = totalIn - totalOut;
+  const isPositive = net >= 0;
+
+  document.getElementById('cf-in').textContent = formatRp(totalIn);
+  document.getElementById('cf-out').textContent = formatRp(totalOut);
+  document.getElementById('cf-net').textContent = formatRp(net);
+  document.getElementById('cf-net').style.color = isPositive ? 'var(--primary-dark)' : '#ef4444';
+  document.getElementById('cf-status').textContent = isPositive ? '✅ Surplus — Kas Positif' : '⚠️ Defisit — Kas Negatif';
+  document.getElementById('cf-status-badge').textContent = isPositive ? 'Surplus' : 'Defisit';
+  document.getElementById('cf-status-badge').className = isPositive ? 'badge badge-green' : 'badge badge-red';
+
+  if (totalIn > 0) {
+    const salaryPct = ((salary/totalIn)*100).toFixed(1);
+    const opsPct = ((ops/totalIn)*100).toFixed(1);
+    document.getElementById('cf-pct-salary').textContent = salaryPct + '%';
+    document.getElementById('cf-pct-ops').textContent = opsPct + '%';
+    document.getElementById('cf-bar-salary').style.width = Math.min(salaryPct, 100) + '%';
+    document.getElementById('cf-bar-ops').style.width = Math.min(opsPct, 100) + '%';
+  }
+
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun'];
+  const ctx = document.getElementById('cashChart').getContext('2d');
+  if (cashChart) cashChart.destroy();
+  cashChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label: 'Cash In', data: months.map((_,i) => Math.round(totalIn*(1+i*0.03))), backgroundColor: 'rgba(22,163,74,0.7)', borderRadius: 8 },
+        { label: 'Cash Out', data: months.map((_,i) => Math.round(totalOut*(1+i*0.01))), backgroundColor: 'rgba(249,115,22,0.7)', borderRadius: 8 },
+        { label: 'Net Flow', data: months.map((_,i) => Math.round((totalIn-totalOut)*(1+i*0.02))), type:'line', borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#2563eb', pointRadius: 5, borderWidth: 2.5 }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index' },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
+      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 11 } } }, x: { grid: { display: false } } }
+    }
+  });
+}
+
+function resetCash() {
+  document.getElementById('cf-sales').value = 100000;
+  document.getElementById('cf-invest').value = 20000;
+  document.getElementById('cf-salary').value = 30000;
+  document.getElementById('cf-ops').value = 15000;
+  calculateCash();
+}
+
+calculateCash();
+</script>
+</body>
+</html>

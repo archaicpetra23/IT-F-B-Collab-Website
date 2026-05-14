@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinForecast — Login</title>
+  <meta name="description" content="Login ke Financial Forecasting Web App untuk simulasi laporan keuangan perusahaan.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="login-body">
+  <div class="login-bg">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+  </div>
+
+  <div class="login-container animate-fade">
+    <!-- Left Panel -->
+    <div class="login-left animate-slide-left">
+      <div class="login-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <span>FinForecast</span>
+      </div>
+      <div class="login-hero">
+        <h1>Financial Forecasting<br><span class="text-gradient">Made Simple</span></h1>
+        <p>Platform simulasi laporan keuangan interaktif untuk analisis bisnis yang lebih cerdas dan akurat.</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item delay-1 animate-fade-up">
+          <div class="feature-dot green"></div>
+          <span>Income Statement Forecast</span>
+        </div>
+        <div class="feature-item delay-2 animate-fade-up">
+          <div class="feature-dot green"></div>
+          <span>Cash Flow Analysis</span>
+        </div>
+        <div class="feature-item delay-3 animate-fade-up">
+          <div class="feature-dot orange"></div>
+          <span>Balance Sheet Forecast</span>
+        </div>
+        <div class="feature-item delay-4 animate-fade-up">
+          <div class="feature-dot orange"></div>
+          <span>BEP & Payback Period</span>
+        </div>
+      </div>
+      <div class="login-stats">
+        <div class="login-stat">
+          <strong>5+</strong>
+          <span>Modul Analisis</span>
+        </div>
+        <div class="login-stat-divider"></div>
+        <div class="login-stat">
+          <strong>Real-time</strong>
+          <span>Kalkulasi</span>
+        </div>
+        <div class="login-stat-divider"></div>
+        <div class="login-stat">
+          <strong>Chart.js</strong>
+          <span>Visualisasi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="login-right animate-fade-up">
+      <div class="login-card">
+        <div class="login-header">
+          <h2>Selamat Datang</h2>
+          <p>Masuk ke akun Anda untuk melanjutkan</p>
+        </div>
+
+        <div id="login-alert" class="alert alert-warning" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="login-alert-text">Email atau password salah.</span>
+        </div>
+
+        <form id="loginForm" autocomplete="off">
+          <div class="form-group">
+            <label class="form-label" for="email">Email Address</label>
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <input type="email" id="email" class="form-input with-icon" placeholder="admin@test.com" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <div class="input-icon-wrap">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <input type="password" id="password" class="form-input with-icon" placeholder="••••••••" required>
+              <button type="button" id="togglePwd" class="toggle-pwd">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-options">
+            <label class="checkbox-wrap">
+              <input type="checkbox" id="rememberMe">
+              <span class="checkmark"></span>
+              <span>Ingat saya</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary login-btn" id="loginBtn">
+            <span id="loginBtnText">Masuk Sekarang</span>
+            <svg id="loginArrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <span id="loginSpinner" class="spinner" style="display:none"></span>
+          </button>
+        </form>
+
+        <div class="login-hint">
+          <div class="hint-label">Demo Credentials</div>
+          <div class="hint-box">
+            <div class="hint-row">
+              <span class="hint-key">Email</span>
+              <code class="hint-val">admin@test.com</code>
+            </div>
+            <div class="hint-row">
+              <span class="hint-key">Password</span>
+              <code class="hint-val">admin123</code>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="login-footer-note">FinForecast &copy; 2026 · Prototype Version</p>
+    </div>
+  </div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

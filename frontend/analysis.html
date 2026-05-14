@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Analysis — FinForecast</title>
+  <meta name="description" content="Analisis BEP (Break Even Point) dan Payback Period untuk keputusan investasi.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-layout" id="app">
+  <div class="main-content">
+    <div class="page-content" id="pageContent"></div>
+  </div>
+</div>
+<script src="js/shared.js"></script>
+<script>
+authGuard();
+document.getElementById('app').insertAdjacentHTML('afterbegin', renderSidebar('analysis'));
+document.querySelector('.main-content').insertAdjacentHTML('afterbegin', renderTopbar('Financial Analysis','Analisis BEP & Payback Period untuk keputusan bisnis'));
+
+let bepChart, paybackChart;
+
+document.getElementById('pageContent').innerHTML = `
+<!-- BEP Section -->
+<div class="section-title animate-fade-up">Break Even Point (BEP) Analysis</div>
+<div class="section-subtitle animate-fade-up">BEP = Fixed Cost ÷ (Selling Price - Variable Cost)</div>
+
+<div class="grid-2 animate-fade-up" style="margin-bottom:28px;align-items:start">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Input BEP</div>
+      <button class="btn btn-outline" onclick="resetBEP()" style="padding:6px 14px;font-size:13px">Reset</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fixed Cost (Biaya Tetap)</label>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-fixed" value="50000" oninput="calculateBEP()"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Selling Price / Unit</label>
+        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-price" value="50" oninput="calculateBEP()"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Variable Cost / Unit</label>
+        <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="bep-var" value="20" oninput="calculateBEP()"></div>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label class="form-label">Target Produksi (Unit)</label>
+      <input type="number" class="form-input" id="bep-target" value="2000" oninput="calculateBEP()">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Hasil BEP</div>
+      <span class="badge badge-green" id="bep-profitability">Profitable</span>
+    </div>
+    <div class="grid-2" style="gap:12px;margin-bottom:16px">
+      <div style="background:var(--primary-bg);border-radius:var(--radius);padding:16px;text-align:center;border:1px solid var(--green-200)">
+        <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">BEP Unit</div>
+        <div style="font-size:26px;font-weight:800;color:var(--primary-dark);font-family:'Outfit',sans-serif" id="bep-unit-result">–</div>
+        <div style="font-size:11px;color:var(--gray-400)">unit</div>
+      </div>
+      <div style="background:var(--orange-50);border-radius:var(--radius);padding:16px;text-align:center;border:1px solid var(--orange-200)">
+        <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">BEP Revenue</div>
+        <div style="font-size:18px;font-weight:800;color:var(--secondary-dark);font-family:'Outfit',sans-serif" id="bep-rev-result">–</div>
+      </div>
+    </div>
+    <div class="result-box">
+      <div class="result-item"><span class="result-label">Contribution Margin</span><span class="result-value" id="bep-cm">–</span></div>
+      <div class="result-item"><span class="result-label">Target vs BEP</span><span class="result-value" id="bep-vs-target">–</span></div>
+      <div class="result-item"><span class="result-label">Margin of Safety</span><span class="result-value highlight" id="bep-mos">–</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card animate-fade-up delay-2" style="margin-bottom:28px">
+  <div class="card-header">
+    <div>
+      <div class="card-title">BEP Chart — Profit / Loss Visualization</div>
+      <div class="card-subtitle">Titik impas biaya total vs pendapatan total</div>
+    </div>
+  </div>
+  <canvas id="bepChart" height="100"></canvas>
+</div>
+
+<!-- Payback Period Section -->
+<div class="section-title animate-fade-up delay-3">Payback Period Analysis</div>
+<div class="section-subtitle animate-fade-up delay-3">Payback Period = Initial Investment ÷ Annual Cash Inflow</div>
+
+<div class="grid-2 animate-fade-up delay-3" style="margin-bottom:24px;align-items:start">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Input Payback</div>
+      <button class="btn btn-outline" onclick="resetPayback()" style="padding:6px 14px;font-size:13px">Reset</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Initial Investment (Modal Awal)</label>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-invest" value="100000" oninput="calculatePayback()"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:0">
+      <label class="form-label">Annual Cash Inflow (Arus Kas Tahunan)</label>
+      <div class="input-group"><span class="input-prefix">Rp</span><input type="number" class="form-input" id="pb-inflow" value="25000" oninput="calculatePayback()"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Hasil Payback Period</div>
+      <span class="badge badge-orange" id="pb-status-badge">Recovery</span>
+    </div>
+    <div style="text-align:center;padding:20px 0;border-bottom:1px dashed var(--gray-200);margin-bottom:16px">
+      <div style="font-size:13px;color:var(--gray-500);margin-bottom:8px">Estimasi Waktu Balik Modal</div>
+      <div style="font-size:48px;font-weight:800;color:var(--primary-dark);font-family:'Outfit',sans-serif;line-height:1" id="pb-years-big">–</div>
+      <div style="font-size:16px;color:var(--gray-600);margin-top:6px" id="pb-years-label">tahun</div>
+    </div>
+    <div class="result-box" style="margin-top:0">
+      <div class="result-item"><span class="result-label">Annual Cash Inflow</span><span class="result-value" id="pb-r-inflow">–</span></div>
+      <div class="result-item"><span class="result-label">Recovery Status</span><span class="result-value" id="pb-status">–</span></div>
+      <div class="result-item"><span class="result-label">ROI (5yr)</span><span class="result-value highlight orange" id="pb-roi">–</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="card animate-fade-up delay-4">
+  <div class="card-header">
+    <div>
+      <div class="card-title">Payback Period — Grafik Kumulatif</div>
+      <div class="card-subtitle">Akumulasi kas vs investasi awal</div>
+    </div>
+  </div>
+  <canvas id="paybackChart" height="100"></canvas>
+</div>
+`;
+
+function calculateBEP() {
+  const fixed = +document.getElementById('bep-fixed').value || 0;
+  const price = +document.getElementById('bep-price').value || 0;
+  const variable = +document.getElementById('bep-var').value || 0;
+  const target = +document.getElementById('bep-target').value || 0;
+  const cm = price - variable;
+  if (cm <= 0) {
+    document.getElementById('bep-unit-result').textContent = 'Error';
+    document.getElementById('bep-rev-result').textContent = 'Margin Negatif';
+    return;
+  }
+  const bepUnit = Math.ceil(fixed / cm);
+  const bepRev = bepUnit * price;
+  const mos = target > bepUnit ? (((target - bepUnit) / target) * 100).toFixed(1) : 0;
+
+  document.getElementById('bep-unit-result').textContent = bepUnit.toLocaleString('id-ID');
+  document.getElementById('bep-rev-result').textContent = formatRp(bepRev);
+  document.getElementById('bep-cm').textContent = formatRp(cm) + ' / unit';
+  document.getElementById('bep-vs-target').textContent = target >= bepUnit ? `✅ Aman (+${(target - bepUnit).toLocaleString('id-ID')} unit)` : `⚠️ Kurang ${(bepUnit - target).toLocaleString('id-ID')} unit`;
+  document.getElementById('bep-mos').textContent = mos + '%';
+  document.getElementById('bep-profitability').textContent = target >= bepUnit ? 'Profitable' : 'At Risk';
+  document.getElementById('bep-profitability').className = target >= bepUnit ? 'badge badge-green' : 'badge badge-red';
+
+  const units = Array.from({length:Math.max(bepUnit*2,target+200)}, (_,i) => i+1).filter((_,i) => i % Math.max(1, Math.floor(bepUnit/10)) === 0).slice(0, 20);
+  const totalCost = units.map(u => fixed + u * variable);
+  const totalRev = units.map(u => u * price);
+
+  const ctx = document.getElementById('bepChart').getContext('2d');
+  if (bepChart) bepChart.destroy();
+  bepChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: units.map(u => u.toLocaleString('id-ID') + ' unit'),
+      datasets: [
+        { label: 'Total Revenue', data: totalRev, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.08)', tension: 0.1, fill: false, pointRadius: 0, borderWidth: 2.5 },
+        { label: 'Total Cost', data: totalCost, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', tension: 0.1, fill: false, pointRadius: 0, borderWidth: 2.5 },
+        { label: 'BEP Point', data: units.map(u => u === units.find(x => x >= bepUnit) ? bepRev : null), borderColor: '#f97316', backgroundColor: '#f97316', pointRadius: units.map(u => u === units.find(x => x >= bepUnit) ? 8 : 0), showLine: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
+      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 10 } } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 10 } } } }
+    }
+  });
+}
+
+function resetBEP() {
+  document.getElementById('bep-fixed').value = 50000;
+  document.getElementById('bep-price').value = 50;
+  document.getElementById('bep-var').value = 20;
+  document.getElementById('bep-target').value = 2000;
+  calculateBEP();
+}
+
+function calculatePayback() {
+  const invest = +document.getElementById('pb-invest').value || 0;
+  const inflow = +document.getElementById('pb-inflow').value || 1;
+  const pp = invest / inflow;
+  const roi5 = ((inflow * 5 - invest) / invest * 100).toFixed(1);
+
+  document.getElementById('pb-years-big').textContent = pp.toFixed(2);
+  document.getElementById('pb-years-label').textContent = pp < 2 ? 'tahun 🚀 Sangat Cepat' : pp < 5 ? 'tahun ✅ Baik' : 'tahun ⚠️ Pertimbangkan Kembali';
+  document.getElementById('pb-r-inflow').textContent = formatRp(inflow);
+  document.getElementById('pb-status').textContent = pp < 5 ? '✅ Layak Investasi' : '⚠️ Pertimbangkan Ulang';
+  document.getElementById('pb-roi').textContent = roi5 + '% (5 tahun)';
+  document.getElementById('pb-status-badge').textContent = pp < 5 ? 'Layak' : 'Risiko';
+  document.getElementById('pb-status-badge').className = pp < 5 ? 'badge badge-green' : 'badge badge-red';
+
+  const years = Array.from({length: Math.ceil(pp) + 3}, (_, i) => i + 1);
+  const cumCash = years.map(y => y * inflow);
+  const investLine = years.map(() => invest);
+
+  const ctx2 = document.getElementById('paybackChart').getContext('2d');
+  if (paybackChart) paybackChart.destroy();
+  paybackChart = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: years.map(y => 'Tahun ' + y),
+      datasets: [
+        { label: 'Kumulatif Cash Flow', data: cumCash, borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#16a34a', pointRadius: 5, borderWidth: 2.5 },
+        { label: 'Initial Investment', data: investLine, borderColor: '#f97316', borderDash: [8, 4], backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: ctx => ' '+formatRp(ctx.raw) } } },
+      scales: { y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { callback: v => 'Rp '+v.toLocaleString('id-ID'), font: { size: 11 } } }, x: { grid: { display: false } } }
+    }
+  });
+}
+
+function resetPayback() {
+  document.getElementById('pb-invest').value = 100000;
+  document.getElementById('pb-inflow').value = 25000;
+  calculatePayback();
+}
+
+calculateBEP();
+calculatePayback();
+</script>
+</body>
+</html>
